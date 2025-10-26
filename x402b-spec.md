@@ -17,13 +17,13 @@ This specification extends the core x402 protocol with:
 - Jurisdiction-specific tax filing requirements
 - Receipt rendering/printing specifications
 
-## 🎯 Overview
+## Overview
 
 **x402b** (x402 BNB Chain Enhanced) is an extension of the x402 payment protocol that introduces:
 1. **pieUSD**: A wrapped USDT token with EIP-3009 support for gasless payments
 2. **Compliance Receipts**: Optional receipt generation for regulatory compliance
 
-## 📦 Components
+## Components
 
 ### 1. pieUSD Token (Wrapped USDT with EIP-3009)
 
@@ -253,7 +253,7 @@ POST /facilitator/settle
 │                                                             │
 │    Facilitator:                                             │
 │    ├─ Submit transaction to blockchain                     │
-│    ├─ Wait for confirmation (~2-10 sec) ⏱️                 │
+│    ├─ Wait for confirmation (~2-10 sec)                  │
 │    ├─ If compliance provided:                              │
 │    │  ├─ Generate compliance receipt                       │
 │    │  ├─ Upload to BNB Greenfield (~1-2 sec)              │
@@ -366,7 +366,7 @@ X-PAYMENT-RESPONSE: eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4MTIzNDU2Nzg5MGFi
 ```
 
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌──────────┐   1. Payment + Compliance  ┌────────────┐
@@ -385,7 +385,7 @@ X-PAYMENT-RESPONSE: eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4MTIzNDU2Nzg5MGFi
      │                           ┌──────────────────────────┐
      │                           │   Facilitator            │
      │                           │ ├─ Submit tx to chain    │
-     │                           │ ├─ Wait for confirm ⏱️   │
+     │                           │ ├─ Wait for confirm      │
      │  7. Response              │ ├─ Generate receipt      │
      │  X-PAYMENT-RESPONSE       │ ├─ Upload to Greenfield  │
      │  + Receipt link           │ └─ Return result         │
@@ -415,7 +415,7 @@ X-PAYMENT-RESPONSE: eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4MTIzNDU2Nzg5MGFi
 
 ---
 
-## 📝 Implementation Notes
+## Implementation Notes
 
 ### Modifications to x402 Core Specification
 
