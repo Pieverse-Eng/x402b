@@ -22,12 +22,6 @@ When submitting an issue, please provide:
 4. **Push to the branch** (`git push origin feature/AmazingFeature`)
 5. **Submit a Pull Request**
 
-### Code Standards
-
-- Use meaningful variable and function names
-- Add necessary comments
-- Follow existing code style
-- Ensure tests pass
 
 ### Commit Message Convention
 
@@ -57,22 +51,6 @@ feat(pieUSD): add transferWithAuthorization support
 Implement EIP-3009 transferWithAuthorization to enable gasless payments on BNB Chain.
 
 Closes #123
-```
-
-## Development Setup
-
-To be added...
-
-## Testing
-
-Run tests:
-```bash
-npm test
-```
-
-Run linting:
-```bash
-npm run lint
 ```
 
 ## Code Review

@@ -18,7 +18,6 @@
 ### 2. Compliance Receipt System
 - Automatic tax/compliance receipt generation
 - Distributed storage on BNB Greenfield
-- 5-year data retention
 - Publicly verifiable receipt URLs
 - Synchronous generation (zero additional latency)
 
