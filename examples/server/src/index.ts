@@ -14,8 +14,20 @@ const NETWORK = "bsc-testnet";
 // In-memory storage for demo (use a real database in production)
 const balances: { [address: string]: { usdt: string; meme402: string } } = {};
 
-// Middleware
-app.use(cors());
+// Middleware - CORS configuration for production
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Local dev
+    'http://localhost:4021', // Local server
+    'https://x402b-example-frontend.vercel.app', // Production frontend
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Payment-Payload'],
+  exposedHeaders: ['X-Payment-Response'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Free endpoint - no payment required
