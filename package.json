@@ -1,0 +1,17 @@
+{
+  "name": "x402b",
+  "version": "0.0.1",
+  "description": "x402b: Enhanced x402 protocol with PieUSD and compliance receipts on BNB Chain",
+  "private": true,
+  "scripts": {
+    "dev:server": "pnpm --filter server dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build:server": "pnpm --filter server build",
+    "build:frontend": "pnpm --filter frontend build",
+    "build": "pnpm build:server && pnpm build:frontend"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

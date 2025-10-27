@@ -1,0 +1,312 @@
+.app {
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  max-width: 500px;
+  width: 100%;
+  padding: 1.5rem;
+  background: #ffffff;
+  border: 3px solid #000000;
+  box-shadow: 8px 8px 0px #000000;
+}
+
+/* ASCII Header */
+.ascii-header {
+  font-size: 0.7rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+/* Info Box */
+.info-box {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.info-box pre {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+/* Connect Section */
+.connect-section {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+/* Account Box */
+.account-box {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.account-box pre {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Balance Section */
+.balance-section {
+  margin-bottom: 1.5rem;
+}
+
+.balance-card-full {
+  text-align: center;
+}
+
+.balance-card-full pre {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Buy Section */
+.buy-section {
+  margin-bottom: 1.5rem;
+}
+
+.buy-label {
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #000000;
+  background: #ffffff;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.input-field:focus {
+  outline: none;
+  box-shadow: 4px 4px 0px #000000;
+}
+
+.input-field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cost-display {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f0f0f0;
+  border: 2px solid #000000;
+  text-align: center;
+}
+
+.cost-display pre {
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-buy {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: 3px solid #000000;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: 4px 4px 0px #666666;
+}
+
+.btn-primary:hover,
+.btn-buy:hover {
+  background: #333333;
+  box-shadow: 6px 6px 0px #666666;
+}
+
+.btn-primary:active,
+.btn-buy:active {
+  box-shadow: 2px 2px 0px #666666;
+}
+
+.btn-primary:disabled,
+.btn-buy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Subtle Disconnect Button */
+.btn-disconnect-subtle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: 1px solid #cccccc;
+  background: transparent;
+  color: #666666;
+  box-shadow: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-disconnect-subtle:hover {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+  transform: none;
+}
+
+.btn-disconnect-subtle:active {
+  background: #333333;
+}
+
+/* Message Box */
+.message-box {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 2px solid #000000;
+  background: #f9f9f9;
+  text-align: center;
+  position: relative;
+}
+
+.message-box pre {
+  font-size: 0.9rem;
+  font-weight: bold;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Success Animation */
+@keyframes celebrate {
+  0% {
+    transform: scale(0.8) rotate(-5deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.success-celebration {
+  animation: celebrate 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.success-celebration::before,
+.success-celebration::after {
+  content: "✨";
+  position: absolute;
+  font-size: 2rem;
+  animation: confetti 1.5s ease-out forwards;
+}
+
+.success-celebration::before {
+  left: -20px;
+  animation-delay: 0.1s;
+}
+
+.success-celebration::after {
+  right: -20px;
+  animation-delay: 0.2s;
+}
+
+/* Footer */
+.footer {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.footer pre {
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    border-width: 2px;
+    box-shadow: 4px 4px 0px #000000;
+  }
+
+  .ascii-header {
+    font-size: 0.6rem;
+  }
+
+  .balance-card-full pre {
+    font-size: 0.7rem;
+  }
+
+  .info-box pre,
+  .account-box pre {
+    font-size: 0.7rem;
+  }
+
+  .btn-primary,
+  .btn-buy {
+    padding: 0.875rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .app {
+    padding: 0.5rem;
+  }
+
+  .container {
+    padding: 0.75rem;
+  }
+
+  .ascii-header {
+    font-size: 0.5rem;
+  }
+
+  .info-box pre,
+  .account-box pre,
+  .buy-label {
+    font-size: 0.65rem;
+  }
+
+  .balance-card pre {
+    font-size: 0.7rem;
+  }
+}
