@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4021;
 const PAY_TO = process.env.PAY_TO as Address;
-const FACILITATOR_URL = process.env.FACILITATOR_URL || 'http://localhost:3002';
+const FACILITATOR_URL = process.env.FACILITATOR_URL || "http://localhost:3002";
 const NETWORK = "bsc-testnet";
 
 // In-memory storage for demo (use a real database in production)
@@ -17,14 +17,15 @@ const balances: { [address: string]: { usdt: string; meme402: string } } = {};
 // Middleware - CORS configuration for production
 const corsOptions = {
   origin: [
-    'http://localhost:5173', // Local dev
-    'http://localhost:4021', // Local server
-    'https://x402b-example-frontend.vercel.app', // Production frontend
+    "http://localhost:5173", // Local dev
+    "http://localhost:4021", // Local server
+    "https://x402b-example-frontend.vercel.app", // Production frontend
+    "https://x402b-testnet.pieverse.io", // Production frontend
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Payment-Payload'],
-  exposedHeaders: ['X-Payment-Response'],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Payment-Payload"],
+  exposedHeaders: ["X-Payment-Response"],
 };
 
 app.use(cors(corsOptions));
@@ -82,12 +83,12 @@ app.get("/health", (req, res) => {
 // Get user balance
 app.get("/balance/:address", (req, res) => {
   const address = req.params.address.toLowerCase();
-  
+
   // Initialize balance if not exists
   if (!balances[address]) {
     balances[address] = { usdt: "0.00", meme402: "0" };
   }
-  
+
   res.json({
     address,
     usdt: balances[address].usdt,
@@ -131,14 +132,18 @@ type ComplianceData = {
 
 // Helper: Base64 encode SettlementResponse for X-PAYMENT-RESPONSE header
 function encodeSettlementResponse(settlement: any): string {
-  return Buffer.from(JSON.stringify(settlement)).toString('base64');
+  return Buffer.from(JSON.stringify(settlement)).toString("base64");
 }
 
 // Helper: Build PaymentRequirementsResponse per x402 spec
-function buildPaymentRequirementsResponse(amount: number, payTo: Address, assetAddress: string) {
+function buildPaymentRequirementsResponse(
+  amount: number,
+  payTo: Address,
+  assetAddress: string
+) {
   const cost = amount * 0.01;
   const costInCents = Math.floor(cost * 100);
-  
+
   return {
     x402Version: 1,
     error: "Payment required to access this resource",
@@ -150,7 +155,8 @@ function buildPaymentRequirementsResponse(amount: number, payTo: Address, assetA
         asset: assetAddress,
         payTo,
         resource: "http://localhost:4021/buy",
-        description: amount === 1 ? 'Buy 1 coffee ☕' : `Buy ${amount} coffees ☕`,
+        description:
+          amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
         mimeType: "application/json",
         outputSchema: null,
         maxTimeoutSeconds: 60,
@@ -179,11 +185,13 @@ app.post("/buy", async (req, res) => {
     const paymentRequirementsResponse = buildPaymentRequirementsResponse(
       amount,
       PAY_TO,
-      process.env.PIEUSD_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000"
+      process.env.PIEUSD_TOKEN_ADDRESS ||
+        "0x0000000000000000000000000000000000000000"
     );
-    
-    return res.status(402)
-      .set('Content-Type', 'application/json')
+
+    return res
+      .status(402)
+      .set("Content-Type", "application/json")
       .json(paymentRequirementsResponse);
   }
 
@@ -200,15 +208,18 @@ app.post("/buy", async (req, res) => {
     // Build x402 PaymentRequirements
     const cost = amount * 0.01;
     const costInCents = Math.floor(cost * 100); // Convert to cents (atomic units)
-    
+
     const paymentRequirements = {
       scheme: "exact",
       network: NETWORK,
       maxAmountRequired: costInCents.toString(),
-      asset: process.env.PIEUSD_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000", // pieUSD address
+      asset:
+        process.env.PIEUSD_TOKEN_ADDRESS ||
+        "0x0000000000000000000000000000000000000000", // pieUSD address
       payTo: PAY_TO,
-      resource: `${req.protocol}://${req.get('host')}/buy`,
-      description: amount === 1 ? 'Buy 1 coffee ☕' : `Buy ${amount} coffees ☕`,
+      resource: `${req.protocol}://${req.get("host")}/buy`,
+      description:
+        amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
       mimeType: "application/json",
       maxTimeoutSeconds: 60,
       extra: {
@@ -219,42 +230,44 @@ app.post("/buy", async (req, res) => {
 
     // Verify payment with facilitator
     const verifyResponse = await fetch(`${FACILITATOR_URL}/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         paymentPayload,
         paymentRequirements,
       }),
     });
 
-    const verifyData = await verifyResponse.json() as any;
+    const verifyData = (await verifyResponse.json()) as any;
 
     // HTTP 402: Payment verification failed
     if (!verifyData.isValid) {
       const settlementResponse = {
         success: false,
-        errorReason: verifyData.invalidReason || 'verification_failed',
+        errorReason: verifyData.invalidReason || "verification_failed",
         transaction: "",
         network: NETWORK,
         payer: verifyData.payer || "",
       };
-      
+
       const paymentRequirementsResponse = buildPaymentRequirementsResponse(
         amount,
         PAY_TO,
-        process.env.PIEUSD_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000"
+        process.env.PIEUSD_TOKEN_ADDRESS ||
+          "0x0000000000000000000000000000000000000000"
       );
-      
-      return res.status(402)
-        .set('Content-Type', 'application/json')
-        .set('X-PAYMENT-RESPONSE', encodeSettlementResponse(settlementResponse))
+
+      return res
+        .status(402)
+        .set("Content-Type", "application/json")
+        .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
         .json(paymentRequirementsResponse);
     }
 
     // Settle payment with facilitator (x402 + x402b)
     const settleResponse = await fetch(`${FACILITATOR_URL}/settle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         paymentPayload,
         paymentRequirements,
@@ -262,27 +275,29 @@ app.post("/buy", async (req, res) => {
       }),
     });
 
-    const settleData = await settleResponse.json() as any;
+    const settleData = (await settleResponse.json()) as any;
 
     // HTTP 402: Payment settlement failed
     if (!settleData.success) {
       const settlementResponse = {
         success: false,
-        errorReason: settleData.errorReason || 'settlement_failed',
+        errorReason: settleData.errorReason || "settlement_failed",
         transaction: settleData.transaction || "",
         network: settleData.network || NETWORK,
         payer: settleData.payer || "",
       };
-      
+
       const paymentRequirementsResponse = buildPaymentRequirementsResponse(
         amount,
         PAY_TO,
-        process.env.PIEUSD_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000"
+        process.env.PIEUSD_TOKEN_ADDRESS ||
+          "0x0000000000000000000000000000000000000000"
       );
-      
-      return res.status(402)
-        .set('Content-Type', 'application/json')
-        .set('X-PAYMENT-RESPONSE', encodeSettlementResponse(settlementResponse))
+
+      return res
+        .status(402)
+        .set("Content-Type", "application/json")
+        .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
         .json(paymentRequirementsResponse);
     }
 
@@ -306,7 +321,10 @@ app.post("/buy", async (req, res) => {
     // Build response with x402 settlement data + optional x402b receipt
     const response: any = {
       success: true,
-      message: amount === 1 ? '☕ Coffee purchased! Enjoy your brew!' : `☕ ${amount} coffees purchased! Enjoy your brews!`,
+      message:
+        amount === 1
+          ? "☕ Coffee purchased! Enjoy your brew!"
+          : `☕ ${amount} coffees purchased! Enjoy your brews!`,
       transaction: {
         txHash: settleData.transaction,
         network: settleData.network,
@@ -334,22 +352,22 @@ app.post("/buy", async (req, res) => {
       payer: settleData.payer,
     };
 
-    res.status(200)
-      .set('Content-Type', 'application/json')
-      .set('X-PAYMENT-RESPONSE', encodeSettlementResponse(settlementResponse))
+    res
+      .status(200)
+      .set("Content-Type", "application/json")
+      .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
       .json(response);
   } catch (error) {
-    console.error('Buy error:', error);
+    console.error("Buy error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: "Internal server error",
     });
   }
 });
 
-
 // Start server (for local development)
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`🚀 x402 Server running on http://localhost:${PORT}`);
     console.log(`💳 Payment address: ${PAY_TO}`);
@@ -359,7 +377,9 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`  GET  /health              - Free (health check)`);
     console.log(`  GET  /merchant-address    - Free (merchant address)`);
     console.log(`  GET  /balance/:address    - Free (user balance)`);
-    console.log(`  POST /buy                 - Paid (buy MEME402, $0.01 per token)`);
+    console.log(
+      `  POST /buy                 - Paid (buy MEME402, $0.01 per token)`
+    );
   });
 }
 
