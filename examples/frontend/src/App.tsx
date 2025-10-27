@@ -590,6 +590,28 @@ function App() {
                 >
                   💰 Your Balances
                 </h4>
+                <div
+                  style={{
+                    margin: "0 0 12px 0",
+                    padding: "8px 12px",
+                    backgroundColor: "#fbbf24",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <a
+                    href="https://www.bnbchain.org/en/testnet-faucet"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "#000",
+                      textDecoration: "none",
+                      fontWeight: "500",
+                    }}
+                  >
+                    🚰 Get 10 USDT from BNB Chain Testnet Faucet →
+                  </a>
+                </div>
                 <div style={{ display: "grid", gap: "8px", fontSize: "14px" }}>
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
