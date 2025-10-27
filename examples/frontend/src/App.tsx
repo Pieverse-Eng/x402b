@@ -111,9 +111,47 @@ function App() {
 
     try {
       setLoading(true);
+
+      // Request accounts first
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
+
+      // Check current chain
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      const bscTestnetChainId = "0x" + bscTestnet.id.toString(16); // 0x61 for BSC testnet
+
+      // Force switch to BNB testnet if not already on it
+      if (chainId !== bscTestnetChainId) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: bscTestnetChainId }],
+          });
+        } catch (switchError: any) {
+          // Chain not added, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: bscTestnetChainId,
+                  chainName: "BNB Smart Chain Testnet",
+                  nativeCurrency: {
+                    name: "BNB",
+                    symbol: "tBNB",
+                    decimals: 18,
+                  },
+                  rpcUrls: ["https://data-seed-prebsc-1-s1.binance.org:8545/"],
+                  blockExplorerUrls: ["https://testnet.bscscan.com"],
+                },
+              ],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+      }
 
       const wallet = createWalletClient({
         account: accounts[0],
@@ -129,7 +167,7 @@ function App() {
       setWalletClient(wallet);
       setPublicClient(client);
       setAccount(accounts[0]);
-      setMessage("✅ Wallet connected!");
+      setMessage("✅ Wallet connected to BNB Testnet!");
 
       // Fetch balances
       await fetchBalances(accounts[0], client);

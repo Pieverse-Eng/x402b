@@ -12,7 +12,7 @@ const FACILITATOR_URL = process.env.FACILITATOR_URL || "http://localhost:3002";
 const NETWORK = "bsc-testnet";
 
 // In-memory storage for demo (use a real database in production)
-const balances: { [address: string]: { usdt: string; meme402: string } } = {};
+const balances: { [address: string]: { usdt: string; coffees: string } } = {};
 
 // Middleware - CORS configuration for production
 const corsOptions = {
@@ -34,7 +34,7 @@ app.use(express.json());
 // Free endpoint - no payment required
 app.get("/", (req, res) => {
   res.json({
-    message: "x402 Playground on BNB Chain - MEME402 Token Shop",
+    message: "x402b Playground on BNB Chain",
     version: "1.0.0",
     endpoints: {
       free: [
@@ -64,7 +64,7 @@ app.get("/", (req, res) => {
           path: "/buy",
           method: "POST",
           price: "$0.01 per token",
-          description: "Buy MEME402 tokens (paid)",
+          description: "Buy coffee (paid)",
         },
       ],
     },
@@ -86,13 +86,13 @@ app.get("/balance/:address", (req, res) => {
 
   // Initialize balance if not exists
   if (!balances[address]) {
-    balances[address] = { usdt: "0.00", meme402: "0" };
+    balances[address] = { usdt: "0.00", coffees: "0" };
   }
 
   res.json({
     address,
     usdt: balances[address].usdt,
-    meme402: balances[address].meme402,
+    coffees: balances[address].coffees,
   });
 });
 
@@ -169,7 +169,7 @@ function buildPaymentRequirementsResponse(
   };
 }
 
-// Buy MEME402 tokens - paid endpoint with x402 + x402b support
+// Buy coffee - paid endpoint with x402 + x402b support
 app.post("/buy", async (req, res) => {
   const { amount, paymentPayload, compliance } = req.body;
 
@@ -310,12 +310,12 @@ app.post("/buy", async (req, res) => {
     }
 
     if (!balances[address]) {
-      balances[address] = { usdt: "0.00", meme402: "0" };
+      balances[address] = { usdt: "0.00", coffees: "0" };
     }
 
-    // Mock minting MEME402 tokens (increment balance)
-    balances[address].meme402 = (
-      parseInt(balances[address].meme402) + amount
+    // Increment coffee purchase count
+    balances[address].coffees = (
+      parseInt(balances[address].coffees) + amount
     ).toString();
 
     // Build response with x402 settlement data + optional x402b receipt
@@ -334,7 +334,7 @@ app.post("/buy", async (req, res) => {
       },
       balance: {
         usdt: balances[address].usdt,
-        meme402: balances[address].meme402,
+        coffees: balances[address].coffees,
       },
     };
 
@@ -378,7 +378,7 @@ if (process.env.NODE_ENV !== "production") {
     console.log(`  GET  /merchant-address    - Free (merchant address)`);
     console.log(`  GET  /balance/:address    - Free (user balance)`);
     console.log(
-      `  POST /buy                 - Paid (buy MEME402, $0.01 per token)`
+      `  POST /buy                 - Paid (buy coffee, $0.01 per coffee)`
     );
   });
 }
