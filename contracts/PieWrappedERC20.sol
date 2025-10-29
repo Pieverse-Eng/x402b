@@ -13,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
 /**
- * @title pieUSD
+ * @title PieWrappedERC20
  * @notice A wrapped ERC20 token with EIP-3009 support for gasless payments
  * @dev Implements EIP-3009 transferWithAuthorization and receiveWithAuthorization for x402 protocol compatibility
  *
@@ -23,7 +23,7 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable
  * - x402 protocol compatible
  * - Instant deposit and redeem
  */
-contract pieUSD is
+contract PieWrappedERC20 is
     Initializable,
     ERC20Upgradeable,
     EIP712Upgradeable,
@@ -96,8 +96,8 @@ contract pieUSD is
     }
 
     /**
-     * @notice Deposit underlying token and receive pieUSD 1:1
-     * @param amount Amount of USDT to deposit
+     * @notice Deposit underlying token and receive wrapped token 1:1
+     * @param amount Amount of underlying token to deposit
      */
     function deposit(uint256 amount) external nonReentrant {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
@@ -115,8 +115,8 @@ contract pieUSD is
     }
 
     /**
-     * @notice Redeem pieUSD for underlying token 1:1
-     * @param amount Amount of pieUSD to redeem
+     * @notice Redeem wrapped token for underlying token 1:1
+     * @param amount Amount of wrapped tokens to redeem
      */
     function redeem(uint256 amount) external nonReentrant {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
