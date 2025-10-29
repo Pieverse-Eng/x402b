@@ -14,11 +14,11 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable
 
 /**
  * @title pieUSD
- * @notice A wrapped USDT token with EIP-3009 support for gasless payments on BNB Chain
+ * @notice A wrapped ERC20 token with EIP-3009 support for gasless payments
  * @dev Implements EIP-3009 transferWithAuthorization and receiveWithAuthorization for x402 protocol compatibility
  *
  * Features:
- * - 1:1 USDT backing (deposit/redeem)
+ * - 1:1 underlying token backing (deposit/redeem)
  * - EIP-3009 gasless transfers (push & pull flows)
  * - x402 protocol compatible
  * - Instant deposit and redeem
@@ -37,8 +37,8 @@ contract pieUSD is
     // EIP-3009 storage
     mapping(address => mapping(bytes32 => bool)) private _authorizationStates;
 
-    // USDT token address on BNB Chain
-    IERC20 public usdt;
+    // Underlying ERC20 token address
+    IERC20 public underlying;
 
     // EIP-3009 typehashes
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
@@ -61,7 +61,8 @@ contract pieUSD is
     error InsufficientBalance();
     error UnauthorizedReceiver();
     error TransferAmountMismatch();
-    error InvalidUsdtAddress();
+    error InvalidUnderlyingAddress();
+    error InvalidUnderlyingSymbol();
     error AuthorizationExpired();
     error AuthorizationNotYetValid();
     error AuthorizationAlreadyUsed();
@@ -77,30 +78,33 @@ contract pieUSD is
 
     /**
      * @notice Initializes the proxy
-     * @param _usdt Address of USDT token on BNB Chain
+     * @param _underlying Address of underlying ERC20 token
+     * @param underlyingSymbol Symbol of underlying token (e.g. "USDT")
      */
-    function initialize(address _usdt) external initializer {
-        if (_usdt == address(0)) revert InvalidUsdtAddress();
+    function initialize(address _underlying, string memory underlyingSymbol) external initializer {
+        if (_underlying == address(0)) revert InvalidUnderlyingAddress();
+        if (bytes(underlyingSymbol).length == 0) revert InvalidUnderlyingSymbol();
 
-        __ERC20_init("pieUSD", "pieUSD");
-        __EIP712_init("pieUSD", "1");
+        string memory pieSymbol = string.concat("pie", underlyingSymbol);
+        __ERC20_init(pieSymbol, pieSymbol);
+        __EIP712_init(pieSymbol, "1");
         __Ownable_init(_msgSender());
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
-        usdt = IERC20(_usdt);
+        underlying = IERC20(_underlying);
     }
 
     /**
-     * @notice Deposit USDT and receive pieUSD 1:1
+     * @notice Deposit underlying token and receive pieUSD 1:1
      * @param amount Amount of USDT to deposit
      */
     function deposit(uint256 amount) external nonReentrant {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
 
-        uint256 balanceBefore = usdt.balanceOf(address(this));
-        usdt.safeTransferFrom(msg.sender, address(this), amount);
-        uint256 balanceAfter = usdt.balanceOf(address(this));
+        uint256 balanceBefore = underlying.balanceOf(address(this));
+        underlying.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 balanceAfter = underlying.balanceOf(address(this));
 
         uint256 received = balanceAfter - balanceBefore;
         if (received != amount) revert TransferAmountMismatch();
@@ -111,7 +115,7 @@ contract pieUSD is
     }
 
     /**
-     * @notice Redeem pieUSD for USDT 1:1
+     * @notice Redeem pieUSD for underlying token 1:1
      * @param amount Amount of pieUSD to redeem
      */
     function redeem(uint256 amount) external nonReentrant {
@@ -120,7 +124,7 @@ contract pieUSD is
 
         _burn(msg.sender, amount);
 
-        usdt.safeTransfer(msg.sender, amount);
+        underlying.safeTransfer(msg.sender, amount);
 
         emit Redeem(msg.sender, amount);
     }
@@ -308,10 +312,10 @@ contract pieUSD is
     }
 
     /**
-     * @notice Get USDT reserves (total USDT held by this contract)
+     * @notice Get underlying token reserves (total underlying held by this contract)
      */
     function getReserves() external view returns (uint256) {
-        return usdt.balanceOf(address(this));
+        return underlying.balanceOf(address(this));
     }
 
     /**
