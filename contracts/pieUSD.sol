@@ -1,58 +1,93 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
 /**
  * @title pieUSD
  * @notice A wrapped USDT token with EIP-3009 support for gasless payments on BNB Chain
- * @dev Implements EIP-3009 transferWithAuthorization for x402 protocol compatibility
+ * @dev Implements EIP-3009 transferWithAuthorization and receiveWithAuthorization for x402 protocol compatibility
  *
  * Features:
  * - 1:1 USDT backing (deposit/redeem)
- * - EIP-3009 gasless transfers
+ * - EIP-3009 gasless transfers (push & pull flows)
  * - x402 protocol compatible
  * - Instant deposit and redeem
  */
-contract pieUSD is ERC20, EIP712, Ownable {
+contract pieUSD is
+    Initializable,
+    ERC20Upgradeable,
+    EIP712Upgradeable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using ECDSA for bytes32;
+    using SafeERC20 for IERC20;
 
     // EIP-3009 storage
     mapping(address => mapping(bytes32 => bool)) private _authorizationStates;
 
     // USDT token address on BNB Chain
-    IERC20 public immutable usdt;
+    IERC20 public usdt;
 
-    // EIP-3009 typehash
+    // EIP-3009 typehashes
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
         "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
     );
+    bytes32 public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = keccak256(
+        "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
+    bytes32 public constant CANCEL_AUTHORIZATION_TYPEHASH =
+        keccak256("CancelAuthorization(address authorizer,bytes32 nonce)");
 
     // Events
     event Deposit(address indexed user, uint256 amount);
     event Redeem(address indexed user, uint256 amount);
-    event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
+    event AuthorizationUsed(address indexed authorizer, address indexed to, uint256 value, bytes32 indexed nonce);
     event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
 
     // Errors
+    error AmountMustBeGreaterThanZero();
+    error InsufficientBalance();
+    error UnauthorizedReceiver();
+    error TransferAmountMismatch();
+    error InvalidUsdtAddress();
     error AuthorizationExpired();
     error AuthorizationNotYetValid();
     error AuthorizationAlreadyUsed();
     error InvalidAuthorization();
-    error InsufficientBalance();
-    error DepositFailed();
-    error RedeemFailed();
 
     /**
-     * @notice Constructor
+     * @notice Disable initializers on the implementation contract
+     */
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initializes the proxy
      * @param _usdt Address of USDT token on BNB Chain
      */
-    constructor(address _usdt) ERC20("pieUSD", "pieUSD") EIP712("pieUSD", "1") Ownable(msg.sender) {
-        require(_usdt != address(0), "Invalid USDT address");
+    function initialize(address _usdt) external initializer {
+        if (_usdt == address(0)) revert InvalidUsdtAddress();
+
+        __ERC20_init("pieUSD", "pieUSD");
+        __EIP712_init("pieUSD", "1");
+        __Ownable_init(_msgSender());
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+
         usdt = IERC20(_usdt);
     }
 
@@ -60,33 +95,32 @@ contract pieUSD is ERC20, EIP712, Ownable {
      * @notice Deposit USDT and receive pieUSD 1:1
      * @param amount Amount of USDT to deposit
      */
-    function deposit(uint256 amount) external {
-        require(amount > 0, "Amount must be > 0");
+    function deposit(uint256 amount) external nonReentrant {
+        if (amount == 0) revert AmountMustBeGreaterThanZero();
 
-        // Transfer USDT from user to this contract
-        bool success = usdt.transferFrom(msg.sender, address(this), amount);
-        if (!success) revert DepositFailed();
+        uint256 balanceBefore = usdt.balanceOf(address(this));
+        usdt.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 balanceAfter = usdt.balanceOf(address(this));
 
-        // Mint pieUSD 1:1
-        _mint(msg.sender, amount);
+        uint256 received = balanceAfter - balanceBefore;
+        if (received != amount) revert TransferAmountMismatch();
 
-        emit Deposit(msg.sender, amount);
+        _mint(msg.sender, received);
+
+        emit Deposit(msg.sender, received);
     }
 
     /**
      * @notice Redeem pieUSD for USDT 1:1
      * @param amount Amount of pieUSD to redeem
      */
-    function redeem(uint256 amount) external {
-        require(amount > 0, "Amount must be > 0");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
+    function redeem(uint256 amount) external nonReentrant {
+        if (amount == 0) revert AmountMustBeGreaterThanZero();
+        if (balanceOf(msg.sender) < amount) revert InsufficientBalance();
 
-        // Burn pieUSD
         _burn(msg.sender, amount);
 
-        // Transfer USDT back to user
-        bool success = usdt.transfer(msg.sender, amount);
-        if (!success) revert RedeemFailed();
+        usdt.safeTransfer(msg.sender, amount);
 
         emit Redeem(msg.sender, amount);
     }
@@ -126,11 +160,7 @@ contract pieUSD is ERC20, EIP712, Ownable {
 
         if (signer != from) revert InvalidAuthorization();
 
-        // Mark authorization as used
-        _authorizationStates[from][nonce] = true;
-        emit AuthorizationUsed(from, nonce);
-
-        // Execute transfer
+        _executeAuthorization(from, to, value, nonce);
         _transfer(from, to, value);
     }
 
@@ -165,11 +195,59 @@ contract pieUSD is ERC20, EIP712, Ownable {
 
         if (signer != from) revert InvalidAuthorization();
 
-        // Mark authorization as used
-        _authorizationStates[from][nonce] = true;
-        emit AuthorizationUsed(from, nonce);
+        _executeAuthorization(from, to, value, nonce);
+        _transfer(from, to, value);
+    }
 
-        // Execute transfer
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        if (to != msg.sender) revert UnauthorizedReceiver();
+
+        _requireValidAuthorization(from, nonce, validAfter, validBefore);
+
+        bytes32 structHash =
+            keccak256(abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce));
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(v, r, s);
+
+        if (signer != from) revert InvalidAuthorization();
+
+        _executeAuthorization(from, to, value, nonce);
+        _transfer(from, to, value);
+    }
+
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes memory signature
+    ) external {
+        if (to != msg.sender) revert UnauthorizedReceiver();
+
+        _requireValidAuthorization(from, nonce, validAfter, validBefore);
+
+        bytes32 structHash =
+            keccak256(abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce));
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+
+        if (signer != from) revert InvalidAuthorization();
+
+        _executeAuthorization(from, to, value, nonce);
         _transfer(from, to, value);
     }
 
@@ -184,9 +262,7 @@ contract pieUSD is ERC20, EIP712, Ownable {
     function cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external {
         _requireUnusedAuthorization(authorizer, nonce);
 
-        bytes32 structHash = keccak256(
-            abi.encode(keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"), authorizer, nonce)
-        );
+        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, authorizer, nonce));
 
         bytes32 digest = _hashTypedDataV4(structHash);
         address signer = digest.recover(v, r, s);
@@ -205,6 +281,11 @@ contract pieUSD is ERC20, EIP712, Ownable {
      */
     function authorizationState(address authorizer, bytes32 nonce) external view returns (bool) {
         return _authorizationStates[authorizer][nonce];
+    }
+
+    function _executeAuthorization(address authorizer, address to, uint256 value, bytes32 nonce) private {
+        _authorizationStates[authorizer][nonce] = true;
+        emit AuthorizationUsed(authorizer, to, value, nonce);
     }
 
     /**
@@ -239,4 +320,6 @@ contract pieUSD is ERC20, EIP712, Ownable {
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
