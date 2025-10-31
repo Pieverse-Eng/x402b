@@ -1203,11 +1203,14 @@ function App() {
 
 							<button
 								onClick={buyCoffee}
-								disabled={loading}
+								disabled={true}
 								className="btn-buy"
 							>
 								{loading ? "⏳ Processing..." : "☕ BUY COFFEE"}
 							</button>
+							<div style={{ textAlign: "center", marginTop: "12px", fontSize: "14px" }}>
+								👁️ 🥧 wen mainnet?
+							</div>
 						</div>
 
 						{/* x402b: Receipt Display */}
