@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { type Address } from "viem";
+import { parseUnits, type Address } from "viem";
 
 dotenv.config();
 
@@ -16,16 +16,17 @@ const balances: { [address: string]: { usdt: string; coffees: string } } = {};
 
 // Middleware - CORS configuration for production
 const corsOptions = {
-  origin: [
-    "http://localhost:5173", // Local dev
-    "http://localhost:4021", // Local server
-    "https://x402b-example-frontend.vercel.app", // Production frontend
-    "https://x402b-testnet.pieverse.io", // Production frontend
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Payment-Payload"],
-  exposedHeaders: ["X-Payment-Response"],
+	origin: [
+		"http://localhost:5173", // Local dev (Vite default)
+		"http://localhost:3000", // Local dev (React default)
+		"http://localhost:4021", // Local server
+		"https://x402b-example-frontend.vercel.app", // Production frontend
+		"https://x402b-testnet.pieverse.io", // Production frontend
+	],
+	credentials: true,
+	methods: ["GET", "POST", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization", "X-Payment-Payload"],
+	exposedHeaders: ["X-Payment-Response"],
 };
 
 app.use(cors(corsOptions));
@@ -33,354 +34,407 @@ app.use(express.json());
 
 // Free endpoint - no payment required
 app.get("/", (req, res) => {
-  res.json({
-    message: "x402b Playground on BNB Chain",
-    version: "1.0.0",
-    endpoints: {
-      free: [
-        {
-          path: "/",
-          method: "GET",
-          description: "API info (free)",
-        },
-        {
-          path: "/health",
-          method: "GET",
-          description: "Health check (free)",
-        },
-        {
-          path: "/merchant-address",
-          method: "GET",
-          description: "Get merchant address (free)",
-        },
-        {
-          path: "/balance/:address",
-          method: "GET",
-          description: "Get user balance (free)",
-        },
-      ],
-      paid: [
-        {
-          path: "/buy",
-          method: "POST",
-          price: "$0.01 per token",
-          description: "Buy coffee (paid)",
-        },
-      ],
-    },
-  });
+	res.json({
+		message: "x402b Playground on BNB Chain",
+		version: "1.0.0",
+		endpoints: {
+			free: [
+				{
+					path: "/",
+					method: "GET",
+					description: "API info (free)",
+				},
+				{
+					path: "/health",
+					method: "GET",
+					description: "Health check (free)",
+				},
+				{
+					path: "/merchant-address",
+					method: "GET",
+					description: "Get merchant address (free)",
+				},
+				{
+					path: "/balance/:address",
+					method: "GET",
+					description: "Get user balance (free)",
+				},
+			],
+			paid: [
+				{
+					path: "/buy",
+					method: "POST",
+					price: "$0.01 per token",
+					description: "Buy coffee (paid)",
+				},
+			],
+		},
+	});
 });
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    network: NETWORK,
-  });
+	res.json({
+		status: "ok",
+		timestamp: new Date().toISOString(),
+		network: NETWORK,
+	});
 });
 
 // Get user balance
 app.get("/balance/:address", (req, res) => {
-  const address = req.params.address.toLowerCase();
+	const address = req.params.address.toLowerCase();
 
-  // Initialize balance if not exists
-  if (!balances[address]) {
-    balances[address] = { usdt: "0.00", coffees: "0" };
-  }
+	// Initialize balance if not exists
+	if (!balances[address]) {
+		balances[address] = { usdt: "0.00", coffees: "0" };
+	}
 
-  res.json({
-    address,
-    usdt: balances[address].usdt,
-    coffees: balances[address].coffees,
-  });
+	res.json({
+		address,
+		usdt: balances[address].usdt,
+		coffees: balances[address].coffees,
+	});
 });
 
 // Get merchant address endpoint
 app.get("/merchant-address", (req, res) => {
-  res.json({
-    address: PAY_TO,
-    network: NETWORK,
-  });
+	res.json({
+		address: PAY_TO,
+		network: NETWORK,
+	});
 });
 
 // x402b: Compliance data type (matches facilitator)
 type ComplianceData = {
-  payer: {
-    jurisdiction: string;
-    entityType: "individual" | "business";
-    entityName: string;
-    taxId?: string;
-    email: string;
-  };
-  merchant: {
-    name: string;
-    taxId: string;
-    address: string;
-  };
-  items: Array<{
-    description: string;
-    quantity: number;
-    unitPrice: string;
-    total: string;
-  }>;
-  preferences: {
-    currency: string;
-    language: string;
-  };
+	payer: {
+		jurisdiction: string;
+		entityType: "individual" | "business";
+		entityName: string;
+		taxId?: string;
+		email: string;
+	};
+	merchant: {
+		name: string;
+		taxId: string;
+		address: string;
+	};
+	items: Array<{
+		description: string;
+		quantity: number;
+		unitPrice: string;
+		total: string;
+	}>;
+	preferences: {
+		currency: string;
+		language: string;
+	};
 };
 
 // Helper: Base64 encode SettlementResponse for X-PAYMENT-RESPONSE header
 function encodeSettlementResponse(settlement: any): string {
-  return Buffer.from(JSON.stringify(settlement)).toString("base64");
+	return Buffer.from(JSON.stringify(settlement)).toString("base64");
 }
 
 // Helper: Build PaymentRequirementsResponse per x402 spec
 function buildPaymentRequirementsResponse(
-  amount: number,
-  payTo: Address,
-  assetAddress: string
+	amount: number,
+	payTo: Address,
+	assetAddress: string,
 ) {
-  const cost = amount * 0.01;
-  const costInCents = Math.floor(cost * 100);
+	const cost = amount * 0.01;
+	const costInCents = Math.floor(cost * 100);
 
-  return {
-    x402Version: 1,
-    error: "Payment required to access this resource",
-    accepts: [
-      {
-        scheme: "exact",
-        network: NETWORK,
-        maxAmountRequired: costInCents.toString(),
-        asset: assetAddress,
-        payTo,
-        resource: "http://localhost:4021/buy",
-        description:
-          amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
-        mimeType: "application/json",
-        outputSchema: null,
-        maxTimeoutSeconds: 60,
-        extra: {
-          name: "pieUSD",
-          version: "1",
-        },
-      },
-    ],
-  };
+	return {
+		x402Version: 1,
+		error: "Payment required to access this resource",
+		accepts: [
+			{
+				scheme: "exact",
+				network: NETWORK,
+				maxAmountRequired: costInCents.toString(),
+				asset: assetAddress,
+				payTo,
+				resource: "http://localhost:4021/buy",
+				description:
+					amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
+				mimeType: "application/json",
+				outputSchema: null,
+				maxTimeoutSeconds: 60,
+				extra: {
+					name: "pieUSD",
+					version: "1",
+				},
+			},
+		],
+	};
 }
 
 // Buy coffee - paid endpoint with x402 + x402b support
 app.post("/buy", async (req, res) => {
-  const { amount, paymentPayload, compliance } = req.body;
+	console.log("[/buy] Incoming request:", {
+		body: req.body,
+		headers: req.headers,
+		ip: req.ip,
+	});
 
-  if (!amount || amount <= 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid amount",
-    });
-  }
+	const { amount, paymentPayload, compliance } = req.body;
 
-  // HTTP 402: Payment Required (no payment provided)
-  if (!paymentPayload) {
-    const paymentRequirementsResponse = buildPaymentRequirementsResponse(
-      amount,
-      PAY_TO,
-      process.env.PIEUSD_TOKEN_ADDRESS ||
-        "0x0000000000000000000000000000000000000000"
-    );
+	if (!amount || amount <= 0) {
+		console.warn("[/buy] Invalid amount provided:", amount);
+		return res.status(400).json({
+			success: false,
+			message: "Invalid amount",
+		});
+	}
 
-    return res
-      .status(402)
-      .set("Content-Type", "application/json")
-      .json(paymentRequirementsResponse);
-  }
+	// HTTP 402: Payment Required (no payment provided)
+	if (!paymentPayload) {
+		console.info(
+			"[/buy] No paymentPayload provided. Sending payment requirements response.",
+		);
+		const paymentRequirementsResponse = buildPaymentRequirementsResponse(
+			amount,
+			PAY_TO,
+			process.env.PIEUSD_TOKEN_ADDRESS ||
+				"0x0000000000000000000000000000000000000000",
+		);
 
-  if (paymentPayload.network !== NETWORK) {
-    return res.status(400).json({
-      success: false,
-      message: `Invalid network. Expected: ${NETWORK}`,
-    });
-  }
+		return res
+			.status(402)
+			.set("Content-Type", "application/json")
+			.json(paymentRequirementsResponse);
+	}
 
-  const address = paymentPayload.payload?.authorization?.from?.toLowerCase();
+	if (paymentPayload.network !== NETWORK) {
+		console.warn(
+			"[/buy] Invalid network received:",
+			paymentPayload.network,
+			"Expected:",
+			NETWORK,
+		);
+		return res.status(400).json({
+			success: false,
+			message: `Invalid network. Expected: ${NETWORK}`,
+		});
+	}
 
-  try {
-    // Build x402 PaymentRequirements
-    const cost = amount * 0.01;
-    const costInCents = Math.floor(cost * 100); // Convert to cents (atomic units)
+	const address = paymentPayload.payload?.authorization?.from?.toLowerCase();
 
-    const paymentRequirements = {
-      scheme: "exact",
-      network: NETWORK,
-      maxAmountRequired: costInCents.toString(),
-      asset:
-        process.env.PIEUSD_TOKEN_ADDRESS ||
-        "0x0000000000000000000000000000000000000000", // pieUSD address
-      payTo: PAY_TO,
-      resource: `${req.protocol}://${req.get("host")}/buy`,
-      description:
-        amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
-      mimeType: "application/json",
-      maxTimeoutSeconds: 60,
-      extra: {
-        name: "pieUSD",
-        version: "1",
-      },
-    };
+	try {
+		// Build x402 PaymentRequirements
+		const cost = amount * 0.01;
+		const costInWei = parseUnits(cost.toString(), 18); // Convert to wei (atomic units)
 
-    // Verify payment with facilitator
-    const verifyResponse = await fetch(`${FACILITATOR_URL}/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paymentPayload,
-        paymentRequirements,
-      }),
-    });
+		const paymentRequirements = {
+			scheme: "exact",
+			network: NETWORK,
+			maxAmountRequired: costInWei.toString(),
+			asset:
+				process.env.PIEUSD_TOKEN_ADDRESS ||
+				"0x0000000000000000000000000000000000000000", // pieUSD address
+			payTo: PAY_TO,
+			resource: `${req.protocol}://${req.get("host")}/buy`,
+			description:
+				amount === 1 ? "Buy 1 coffee ☕" : `Buy ${amount} coffees ☕`,
+			mimeType: "application/json",
+			maxTimeoutSeconds: 60,
+			extra: {
+				name: "pieUSD",
+				version: "1",
+			},
+		};
+		console.log("[/buy] Built payment requirements:", paymentRequirements);
 
-    const verifyData = (await verifyResponse.json()) as any;
+		// Verify payment with facilitator
+		console.log(
+			"[/buy] Sending verification to facilitator:",
+			FACILITATOR_URL,
+			{
+				paymentPayload,
+				paymentRequirements,
+			},
+		);
+		const verifyResponse = await fetch(`${FACILITATOR_URL}/verify`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				paymentPayload,
+				paymentRequirements,
+			}),
+		});
 
-    // HTTP 402: Payment verification failed
-    if (!verifyData.isValid) {
-      const settlementResponse = {
-        success: false,
-        errorReason: verifyData.invalidReason || "verification_failed",
-        transaction: "",
-        network: NETWORK,
-        payer: verifyData.payer || "",
-      };
+		const verifyData = (await verifyResponse.json()) as any;
+		console.log("[/buy] Facilitator verify response:", verifyData);
 
-      const paymentRequirementsResponse = buildPaymentRequirementsResponse(
-        amount,
-        PAY_TO,
-        process.env.PIEUSD_TOKEN_ADDRESS ||
-          "0x0000000000000000000000000000000000000000"
-      );
+		// HTTP 402: Payment verification failed
+		if (!verifyData.isValid) {
+			console.warn(
+				"[/buy] Payment verification failed:",
+				verifyData.invalidReason,
+			);
+			const settlementResponse = {
+				success: false,
+				errorReason: verifyData.invalidReason || "verification_failed",
+				transaction: "",
+				network: NETWORK,
+				payer: verifyData.payer || "",
+			};
 
-      return res
-        .status(402)
-        .set("Content-Type", "application/json")
-        .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
-        .json(paymentRequirementsResponse);
-    }
+			const paymentRequirementsResponse = buildPaymentRequirementsResponse(
+				amount,
+				PAY_TO,
+				process.env.PIEUSD_TOKEN_ADDRESS ||
+					"0x0000000000000000000000000000000000000000",
+			);
 
-    // Settle payment with facilitator (x402 + x402b)
-    const settleResponse = await fetch(`${FACILITATOR_URL}/settle`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paymentPayload,
-        paymentRequirements,
-        compliance, // x402b: optional compliance data
-      }),
-    });
+			return res
+				.status(402)
+				.set("Content-Type", "application/json")
+				.set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
+				.json(paymentRequirementsResponse);
+		}
 
-    const settleData = (await settleResponse.json()) as any;
+		// Settle payment with facilitator (x402 + x402b)
+		console.log("[/buy] Payment verified, settling payment...");
+		const settleResponse = await fetch(`${FACILITATOR_URL}/settle`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				paymentPayload,
+				paymentRequirements,
+				compliance, // x402b: optional compliance data
+			}),
+		});
 
-    // HTTP 402: Payment settlement failed
-    if (!settleData.success) {
-      const settlementResponse = {
-        success: false,
-        errorReason: settleData.errorReason || "settlement_failed",
-        transaction: settleData.transaction || "",
-        network: settleData.network || NETWORK,
-        payer: settleData.payer || "",
-      };
+		const settleData = (await settleResponse.json()) as any;
+		console.log("[/buy] Facilitator settle response:", settleData);
 
-      const paymentRequirementsResponse = buildPaymentRequirementsResponse(
-        amount,
-        PAY_TO,
-        process.env.PIEUSD_TOKEN_ADDRESS ||
-          "0x0000000000000000000000000000000000000000"
-      );
+		// HTTP 402: Payment settlement failed
+		if (!settleData.success) {
+			console.warn(
+				"[/buy] Payment settlement failed:",
+				settleData.errorReason || "unknown reason",
+			);
+			const settlementResponse = {
+				success: false,
+				errorReason: settleData.errorReason || "settlement_failed",
+				transaction: settleData.transaction || "",
+				network: settleData.network || NETWORK,
+				payer: settleData.payer || "",
+			};
 
-      return res
-        .status(402)
-        .set("Content-Type", "application/json")
-        .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
-        .json(paymentRequirementsResponse);
-    }
+			const paymentRequirementsResponse = buildPaymentRequirementsResponse(
+				amount,
+				PAY_TO,
+				process.env.PIEUSD_TOKEN_ADDRESS ||
+					"0x0000000000000000000000000000000000000000",
+			);
 
-    // Initialize balance if not exists
-    if (!address) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid payer address in payment payload",
-      });
-    }
+			return res
+				.status(402)
+				.set("Content-Type", "application/json")
+				.set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
+				.json(paymentRequirementsResponse);
+		}
 
-    if (!balances[address]) {
-      balances[address] = { usdt: "0.00", coffees: "0" };
-    }
+		// Initialize balance if not exists
+		if (!address) {
+			console.error(
+				"[/buy] No address extracted from paymentPayload:",
+				paymentPayload.payload,
+			);
+			return res.status(400).json({
+				success: false,
+				message: "Invalid payer address in payment payload",
+			});
+		}
 
-    // Increment coffee purchase count
-    balances[address].coffees = (
-      parseInt(balances[address].coffees) + amount
-    ).toString();
+		if (!balances[address]) {
+			console.log("[/buy] Initializing balances for", address);
+			balances[address] = { usdt: "0.00", coffees: "0" };
+		}
 
-    // Build response with x402 settlement data + optional x402b receipt
-    const response: any = {
-      success: true,
-      message:
-        amount === 1
-          ? "☕ Coffee purchased! Enjoy your brew!"
-          : `☕ ${amount} coffees purchased! Enjoy your brews!`,
-      transaction: {
-        txHash: settleData.transaction,
-        network: settleData.network,
-        payer: settleData.payer,
-        amount,
-        cost: cost.toFixed(2),
-      },
-      balance: {
-        usdt: balances[address].usdt,
-        coffees: balances[address].coffees,
-      },
-    };
+		// Increment coffee purchase count
+		const previousCoffees = balances[address].coffees;
+		balances[address].coffees = (
+			parseInt(balances[address].coffees) + amount
+		).toString();
 
-    // x402b: Include receipt if generated
-    if (settleData.receipt) {
-      response.receipt = settleData.receipt;
-      console.log("[x402b] Receipt included in response:", settleData.receipt);
-    }
+		console.log(
+			"[/buy] Coffee purchase incremented for",
+			address,
+			": was",
+			previousCoffees,
+			"now",
+			balances[address].coffees,
+		);
 
-    // HTTP 200: Success with X-PAYMENT-RESPONSE header (per x402 HTTP transport spec)
-    const settlementResponse = {
-      success: true,
-      transaction: settleData.transaction,
-      network: settleData.network,
-      payer: settleData.payer,
-    };
+		// Build response with x402 settlement data + optional x402b receipt
+		const response: any = {
+			success: true,
+			message:
+				amount === 1
+					? "☕ Coffee purchased! Enjoy your brew!"
+					: `☕ ${amount} coffees purchased! Enjoy your brews!`,
+			transaction: {
+				txHash: settleData.transaction,
+				network: settleData.network,
+				payer: settleData.payer,
+				amount,
+				cost: cost.toFixed(2),
+			},
+			balance: {
+				usdt: balances[address].usdt,
+				coffees: balances[address].coffees,
+			},
+		};
 
-    res
-      .status(200)
-      .set("Content-Type", "application/json")
-      .set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
-      .json(response);
-  } catch (error) {
-    console.error("Buy error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
+		// x402b: Include receipt if generated
+		if (settleData.receipt) {
+			response.receipt = settleData.receipt;
+			console.log("[x402b] Receipt included in response:", settleData.receipt);
+		}
+
+		// HTTP 200: Success with X-PAYMENT-RESPONSE header (per x402 HTTP transport spec)
+		const settlementResponse = {
+			success: true,
+			transaction: settleData.transaction,
+			network: settleData.network,
+			payer: settleData.payer,
+		};
+
+		console.log("[/buy] Purchase successful for", address, ":", response);
+
+		res
+			.status(200)
+			.set("Content-Type", "application/json")
+			.set("X-PAYMENT-RESPONSE", encodeSettlementResponse(settlementResponse))
+			.json(response);
+	} catch (error) {
+		console.error("Buy error:", error);
+		return res.status(500).json({
+			success: false,
+			message: "Internal server error",
+		});
+	}
 });
 
 // Start server (for local development)
 if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`🚀 x402 Server running on http://localhost:${PORT}`);
-    console.log(`💳 Payment address: ${PAY_TO}`);
-    console.log(`🌐 Network: ${NETWORK}`);
-    console.log(`\nEndpoints:`);
-    console.log(`  GET  /                    - Free (API info)`);
-    console.log(`  GET  /health              - Free (health check)`);
-    console.log(`  GET  /merchant-address    - Free (merchant address)`);
-    console.log(`  GET  /balance/:address    - Free (user balance)`);
-    console.log(
-      `  POST /buy                 - Paid (buy coffee, $0.01 per coffee)`
-    );
-  });
+	app.listen(PORT, () => {
+		console.log(`🚀 x402 Server running on http://localhost:${PORT}`);
+		console.log(`💳 Payment address: ${PAY_TO}`);
+		console.log(`🌐 Network: ${NETWORK}`);
+		console.log(`\nEndpoints:`);
+		console.log(`  GET  /                    - Free (API info)`);
+		console.log(`  GET  /health              - Free (health check)`);
+		console.log(`  GET  /merchant-address    - Free (merchant address)`);
+		console.log(`  GET  /balance/:address    - Free (user balance)`);
+		console.log(
+			`  POST /buy                 - Paid (buy coffee, $0.01 per coffee)`,
+		);
+	});
 }
 
 // Export for Vercel serverless

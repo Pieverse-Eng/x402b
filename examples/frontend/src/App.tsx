@@ -1203,12 +1203,18 @@ function App() {
 
 							<button
 								onClick={buyCoffee}
-								disabled={true}
+								disabled={loading}
 								className="btn-buy"
 							>
 								{loading ? "⏳ Processing..." : "☕ BUY COFFEE"}
 							</button>
-							<div style={{ textAlign: "center", marginTop: "12px", fontSize: "14px" }}>
+							<div
+								style={{
+									textAlign: "center",
+									marginTop: "12px",
+									fontSize: "14px",
+								}}
+							>
 								👁️ 🥧 wen mainnet?
 							</div>
 						</div>
